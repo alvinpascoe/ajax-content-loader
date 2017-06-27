@@ -1,0 +1,5 @@
+name = Ajax Content Loader
+description = "A custom module which dynamically loads node content."
+core = 7.x
+package = Website Customisations
+stylesheets[all][] = css/ajax_content_loader.css
