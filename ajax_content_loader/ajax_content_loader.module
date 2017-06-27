@@ -1,0 +1,111 @@
+<?php
+
+/**
+ * Load required files.
+ */
+
+function ajax_content_loader_init(){
+  drupal_add_js('misc/jquery.form.js');
+  drupal_add_library('system','drupal.ajax');
+
+  // If we're not in the admin theme, load JavaScript.
+  global $theme;
+  if(variable_get('admin_theme', FALSE) != $theme){
+    $path = drupal_get_path('module', 'ajax_content_loader');
+    drupal_add_js($path . '/js/ajax_content_loader.js');
+  }
+}
+
+/*
+ * Implements hook_menu()
+ */
+function ajax_content_loader_menu(){
+  // A menu callback is required when using ajax outside of the Form API
+
+  $items['blog/ajax'] = array(
+    'page callback' => 'ajax_link_response',
+    'access callback' => 'user_access',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+function ajax_link_response($type = 'ajax', $nid = 0){
+  // Load the requested new node
+  $node = node_load($nid, NULL, true);
+  $content = '.main-carousel-wrapper';
+  if($node){
+
+  // Helper functions
+  $node_title = _ajax_content_loader_get_node_title($node);
+  $node_content = _ajax_content_loader_get_node_content($node);
+  $featured_image_output = _ajax_content_loader_get_featured_image_view($nid);
+  $new_url = _ajax_loader_get_new_url($nid);
+
+  if($type == 'ajax'){
+    // We'll create an array of commands
+    $commands = array();
+
+    // Run custom javascript, trigger a custom event and pass parameters.
+    $commands[] = ajax_command_invoke('html', 'trigger', array('beforeAjaxProcess', $content));
+
+    // Update node title (depending on your page structure, the selectors may differ)
+    $commands[] = ajax_command_replace('#page-title', '<h1 class="title" id="page-title">' . $node_title . '</h1>');
+
+    // Update node content (depending on your page structure, the selectors may differ)
+    $commands[] = ajax_command_replace('#block-system-main > .content', '<div class="content">'.$node_content.'</div>');
+
+    // Update featured image view (depending on your page structure, the selectors may differ)
+    $commands[] = ajax_command_replace('.view-featured-image .view-content', '<div class="view-content">' . $featured_image_output . '</div>');
+
+    // Run custom javascript, trigger a custom event and pass parameters.
+    $commands[] = ajax_command_invoke('html', 'trigger', array('afterAjaxProcess',
+      array(
+        'title' => $node_title,
+        'url' =>  $new_url,
+        'selector' => $content,
+      )
+    ));
+
+    $page = array(
+      '#type' => 'ajax',
+      '#commands' => $commands
+    );
+
+    // Execute commands and send the result as an AJAX response.
+    ajax_deliver($page);
+
+    }else{
+      // Else, JavaScript not enabled, return fallback content.
+      $content_fallback = "Please enable JavaScript to view the page.";
+      return $content_fallback;
+    }
+  }
+}
+
+function _ajax_content_loader_get_node_title($node){
+  return $node->title;
+}
+
+function _ajax_content_loader_get_node_content($node){
+  // Render node content
+
+  // If your theme prints out the title in the content,
+  // uncomment the line below.
+  $node->title = '';
+
+  $vnode = node_view($node, 'full');
+  return render($vnode);
+}
+
+function _ajax_content_loader_get_featured_image_view($nid = 0){
+  // The machine name of my view is 'featured_image'...
+  // Update this to match your view's machine name.
+  return views_embed_view ('featured_image', 'block', $nid);
+}
+
+function _ajax_loader_get_new_url($nid = 0){
+  $options = array('absolute' => TRUE);
+  return url('node/' . $nid, $options);
+}
