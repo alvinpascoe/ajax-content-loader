@@ -1,0 +1,4 @@
+.js-ajax-loader a.use-ajax{
+  /* Hide AJAX links by default, let JavaScript show them if enabled. */
+  display:none;
+}
